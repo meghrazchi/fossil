@@ -3,6 +3,7 @@ name = "fossil"
 version.workspace = true
 description = "High-performance cross-platform disk usage analyzer and storage visualizer"
 authors.workspace = true
+license.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 

@@ -3,6 +3,7 @@ name = "fossil-core"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+license.workspace = true
 authors.workspace = true
 description = "Core parallel disk scanner, tree arena, treemap layout, and file operations for Fossil"
 
