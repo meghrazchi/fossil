@@ -62,15 +62,9 @@ fn select_parallelism(num_threads: usize) -> Parallelism {
 fn should_skip_dir(path: &Path, root_is_slash: bool, extra_skip_mounts: &[String]) -> bool {
     #[cfg(target_os = "linux")]
     {
-        if root_is_slash {
-            if let Some(s) = path.to_str() {
-                if matches!(s, "/proc" | "/sys" | "/dev" | "/run") {
-                    return true;
-                }
-                if extra_skip_mounts.iter().any(|m| m == s) {
-                    return true;
-                }
-            }
+        if root_is_slash && let Some(s) = path.to_str() {
+            return matches!(s, "/proc" | "/sys" | "/dev" | "/run")
+                || extra_skip_mounts.iter().any(|m| m == s);
         }
         false
     }
