@@ -27,6 +27,9 @@ pub fn run() {
             commands::reveal_in_file_manager,
             commands::trash_nodes,
             commands::delete_nodes_permanently,
+            commands::get_mcp_client_statuses,
+            commands::install_mcp_client,
+            commands::uninstall_mcp_client,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Fossil");

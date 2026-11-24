@@ -131,20 +131,48 @@ fossil reveal ~/Downloads/archive.zip
 
 ### 3. Connect to AI Assistants (MCP)
 
-Fossil includes a built-in **MCP (Model Context Protocol)** server so AI assistants like **Claude Desktop**, **Cursor**, and **Antigravity** can inspect your storage, search files across all CPU cores, find build bloat, and safely move unwanted files to Trash on your behalf.
+Fossil includes a full-featured **MCP (Model Context Protocol)** server so AI assistants like **Claude Desktop / Claude Code**, **Gemini CLI / Google Antigravity**, **OpenAI Codex CLI**, and **ChatGPT (Web & Desktop)** can inspect your storage, drill down into directories, search files across all CPU cores, detect build bloat, and safely move unwanted files to Trash on your behalf.
 
-Add Fossil to your MCP client configuration:
+#### 1-Click Client Setup
 
-```json
-{
-  "mcpServers": {
-    "fossil": {
-      "command": "/absolute/path/to/fossil",
-      "args": ["mcp"]
-    }
-  }
-}
+Configure your favorite assistant automatically with a single command:
+
+```bash
+# Claude Desktop / Claude Code
+fossil mcp install claude-desktop
+fossil mcp install claude-code
+
+# Gemini CLI / Google Antigravity
+fossil mcp install gemini
+fossil mcp install antigravity
+
+# OpenAI Codex CLI / Cursor / VS Code
+fossil mcp install codex
+fossil mcp install cursor
+
+# Check status of configured assistants
+fossil mcp status
 ```
+
+#### ChatGPT (Web & Desktop Connectors)
+
+ChatGPT connects over **Streamable HTTP** with authenticated endpoints:
+
+```bash
+# Start Streamable HTTP server on port 7742
+fossil mcp serve --http --port 7742
+
+# For ChatGPT Web, expose via Cloudflare Tunnel or Tailscale
+cloudflared tunnel --url http://127.0.0.1:7742
+```
+
+In ChatGPT &rarr; _Settings_ &rarr; _Connected apps_, add your tunnel URL `https://<tunnel-domain>/mcp` with Bearer token authentication.
+
+#### In the Desktop App
+
+Click the **AI / MCP** button in Fossil's toolbar or home screen to inspect connected assistants and configure them with a single click.
+
+> Read the full integration guide and security options in **[docs/MCP.md](./docs/MCP.md)**.
 
 **Try asking your AI assistant:**
 

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/fossil-core", "crates/fossil-cli", "src-tauri"]
+members = ["crates/fossil-core", "crates/fossil-mcp", "crates/fossil-cli", "src-tauri"]
 resolver = "2"
 
 [workspace.package]

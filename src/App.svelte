@@ -9,6 +9,7 @@
     Search,
     Square,
     AlertCircle,
+    Bot,
     Sparkles,
     X,
   } from '@lucide/svelte';
@@ -19,6 +20,7 @@
   import BottomInspector, { type InspectorTab } from './components/BottomInspector.svelte';
   import ContextMenu from './components/ContextMenu.svelte';
   import DeleteModal from './components/DeleteModal.svelte';
+  import McpModal from './components/McpModal.svelte';
   import { formatBytes, formatCount, formatDuration } from './lib/format';
   import {
     cancelScan,
@@ -59,6 +61,7 @@
   let scanProgress = $state<ScanProgress | null>(null);
   let scanSummary = $state<ScanSummary | null>(null);
   let activeScanPath = $state<string | null>(null);
+  let isMcpModalOpen = $state(false);
 
   // Navigation & View state
   let currentRootId = $state(0);
@@ -333,7 +336,12 @@
 
 <div class="flex h-screen w-screen flex-col overflow-hidden bg-zinc-950 text-zinc-100">
   {#if !scanSummary && !isScanning}
-    <DrivePicker {volumes} {quickTargets} onScan={runScan} />
+    <DrivePicker
+      {volumes}
+      {quickTargets}
+      onScan={runScan}
+      onOpenMcp={() => (isMcpModalOpen = true)}
+    />
   {:else}
     <!-- Top Navigation & Toolbar -->
     <header
@@ -438,6 +446,15 @@
             : 'border-zinc-800 bg-zinc-900 text-zinc-400 hover:text-zinc-200'}"
         >
           <Sparkles class="h-3.5 w-3.5" />
+        </button>
+
+        <button
+          title="Connect AI Assistants (MCP)"
+          onclick={() => (isMcpModalOpen = true)}
+          class="cursor-pointer inline-flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/10 px-2.5 py-1 text-[11px] font-medium text-purple-300 hover:bg-purple-500/20 transition"
+        >
+          <Bot class="h-3.5 w-3.5 text-purple-400" />
+          <span>AI / MCP</span>
         </button>
 
         {#if isScanning}
@@ -617,6 +634,9 @@
       onConfirm={handleConfirmPermanentDelete}
     />
   {/if}
+
+  <!-- AI / MCP Modal -->
+  <McpModal open={isMcpModalOpen} onclose={() => (isMcpModalOpen = false)} />
 
   <!-- Permission Warnings Modal -->
   {#if showWarnings}

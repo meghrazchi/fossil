@@ -1,5 +1,3 @@
-mod mcp;
-
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
@@ -144,8 +142,64 @@ enum Commands {
     },
     /// Reveal a file or folder in the native OS file manager
     Reveal { path: PathBuf },
-    /// Start the Model Context Protocol (MCP) JSON-RPC 2.0 server over stdio
-    Mcp,
+    /// Model Context Protocol (MCP) server for Gemini, Claude, ChatGPT, and AI agents
+    Mcp(McpArgs),
+}
+
+#[derive(clap::Args, Clone, Debug)]
+pub struct McpArgs {
+    #[command(subcommand)]
+    pub subcommand: Option<McpSubcommands>,
+
+    /// Run in read-only mode (blocks trash and file manager reveal)
+    #[arg(long, global = true)]
+    pub read_only: bool,
+
+    /// Restrict file system access to specific allowed directory paths
+    #[arg(long = "allow-dir", global = true)]
+    pub allow_dirs: Vec<PathBuf>,
+
+    /// Start Streamable HTTP server instead of stdio (for ChatGPT and remote clients)
+    #[arg(long)]
+    pub http: bool,
+
+    /// HTTP server bind address (e.g. 127.0.0.1:7742)
+    #[arg(long, default_value = "127.0.0.1:7742")]
+    pub addr: String,
+
+    /// Bearer authentication token for HTTP transport (auto-generated if omitted)
+    #[arg(long)]
+    pub token: Option<String>,
+}
+
+#[derive(Subcommand, Clone, Debug)]
+pub enum McpSubcommands {
+    /// Start the MCP server (stdio by default, or Streamable HTTP with --http)
+    Serve {
+        /// Start Streamable HTTP server instead of stdio
+        #[arg(long)]
+        http: bool,
+
+        /// HTTP server bind address (e.g. 127.0.0.1:7742)
+        #[arg(long, default_value = "127.0.0.1:7742")]
+        addr: String,
+
+        /// Bearer authentication token for HTTP transport
+        #[arg(long)]
+        token: Option<String>,
+    },
+    /// Auto-configure an AI assistant client (claude-desktop, claude-code, gemini, antigravity, codex, cursor, vscode, chatgpt)
+    Install {
+        /// Target AI client name
+        client: String,
+    },
+    /// Remove Fossil MCP configuration from an AI assistant
+    Uninstall {
+        /// Target AI client name
+        client: String,
+    },
+    /// Check configuration status for all supported AI assistant clients
+    Status,
 }
 
 fn main() -> ExitCode {
@@ -390,7 +444,94 @@ fn run(cli: Cli) -> Result<(), String> {
             Ok(())
         }
         Commands::Reveal { path } => ops::reveal_in_file_manager(&path),
-        Commands::Mcp => mcp::run_stdio_server(),
+        Commands::Mcp(args) => run_mcp_command(args),
+    }
+}
+
+fn run_mcp_command(args: McpArgs) -> Result<(), String> {
+    match args.subcommand {
+        Some(McpSubcommands::Install { client }) => {
+            let target = fossil_mcp::ClientTarget::parse(&client).ok_or_else(|| {
+                format!(
+                    "Unknown AI client '{client}'. Supported targets: claude-desktop, claude-code, gemini, antigravity, codex, cursor, vscode, chatgpt"
+                )
+            })?;
+            let msg = fossil_mcp::install_client(target)?;
+            println!("{msg}");
+            Ok(())
+        }
+        Some(McpSubcommands::Uninstall { client }) => {
+            let target = fossil_mcp::ClientTarget::parse(&client).ok_or_else(|| {
+                format!(
+                    "Unknown AI client '{client}'. Supported targets: claude-desktop, claude-code, gemini, antigravity, codex, cursor, vscode, chatgpt"
+                )
+            })?;
+            let msg = fossil_mcp::uninstall_client(target)?;
+            println!("{msg}");
+            Ok(())
+        }
+        Some(McpSubcommands::Status) => {
+            let statuses = fossil_mcp::check_status();
+            println!("Fossil MCP Client Configuration Status:\n");
+            for (target, is_configured, path) in statuses {
+                let status_str = if is_configured {
+                    "✓ Configured"
+                } else {
+                    "✗ Not Configured"
+                };
+                let path_str = path
+                    .map(|p| p.display().to_string())
+                    .unwrap_or_else(|| "N/A".to_owned());
+                println!(
+                    "  {:<24} {:<18} ({path_str})",
+                    target.display_name(),
+                    status_str
+                );
+            }
+            println!("\nRun 'fossil mcp install <client>' to configure an assistant.");
+            Ok(())
+        }
+        Some(McpSubcommands::Serve { http, addr, token }) => {
+            run_mcp_server(args.read_only, args.allow_dirs, http, addr, token)
+        }
+        None => run_mcp_server(
+            args.read_only,
+            args.allow_dirs,
+            args.http,
+            args.addr,
+            args.token,
+        ),
+    }
+}
+
+fn run_mcp_server(
+    read_only: bool,
+    allow_dirs: Vec<PathBuf>,
+    use_http: bool,
+    addr: String,
+    token: Option<String>,
+) -> Result<(), String> {
+    let policy = fossil_mcp::ServerSecurityPolicy::new(read_only, allow_dirs);
+    let server = Arc::new(fossil_mcp::McpServer::new(policy));
+
+    if use_http {
+        let bind_addr = addr
+            .parse()
+            .map_err(|e| format!("Invalid HTTP bind address '{addr}': {e}"))?;
+        let options = fossil_mcp::HttpOptions {
+            bind_addr,
+            token,
+            allowed_hosts: vec![
+                "127.0.0.1".to_owned(),
+                "localhost".to_owned(),
+                "::1".to_owned(),
+            ],
+            allowed_origins: vec!["*".to_owned()],
+        };
+        let stop_signal = Arc::new(AtomicBool::new(false));
+        fossil_mcp::run_http_server(server, options, stop_signal)
+    } else {
+        fossil_mcp::run_stdio_server(server)
     }
 }
 

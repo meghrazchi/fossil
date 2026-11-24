@@ -52,7 +52,7 @@ pub fn is_protected_path(path: &Path) -> bool {
     let s = path.to_string_lossy();
     let normalized = s.trim_end_matches(['/', '\\']);
 
-    matches!(
+    if matches!(
         normalized,
         "" | "/"
             | "/System"
@@ -71,7 +71,25 @@ pub fn is_protected_path(path: &Path) -> bool {
             | "C:\\Program Files"
             | "C:\\Program Files (x86)"
             | "C:\\Users"
-    )
+    ) {
+        return true;
+    }
+
+    // Protect user home directory itself (prevent deleting ~)
+    if let Ok(home) = std::env::var("HOME") {
+        let norm_home = home.trim_end_matches(['/', '\\']);
+        if !norm_home.is_empty() && normalized == norm_home {
+            return true;
+        }
+    }
+    if let Ok(up) = std::env::var("USERPROFILE") {
+        let norm_up = up.trim_end_matches(['/', '\\']);
+        if !norm_up.is_empty() && normalized == norm_up {
+            return true;
+        }
+    }
+
+    false
 }
 
 /// Moves real paths to the OS Trash / Recycle Bin.
@@ -118,6 +136,9 @@ mod tests {
         assert!(is_protected_path(Path::new("/")));
         assert!(is_protected_path(Path::new("/System")));
         assert!(is_protected_path(Path::new("/Users")));
+        if let Ok(home) = std::env::var("HOME") {
+            assert!(is_protected_path(Path::new(&home)));
+        }
         assert!(!is_protected_path(Path::new(
             "/Users/alice/Downloads/big.iso"
         )));

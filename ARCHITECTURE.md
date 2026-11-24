@@ -8,7 +8,7 @@ For end-user usage and quick start guides, see [README.md](./README.md).
 
 ## 1. Workspace & Crate Architecture
 
-Fossil is structured as a **Cargo Workspace** with a strict separation between the pure-Rust filesystem engine (`fossil-core`) and its two frontends (`src-tauri` desktop shell and `fossil-cli` standalone CLI/MCP binary):
+Fossil is structured as a **Cargo Workspace** with a clean separation between the pure-Rust filesystem engine (`fossil-core`), the shared MCP integration engine (`fossil-mcp`), and its two frontends (`src-tauri` desktop shell and `fossil-cli` standalone CLI binary):
 
 ```text
 fossil/
@@ -25,17 +25,22 @@ fossil/
 │   │       └── scanner/
 │   │           ├── mod.rs         # Multi-core jwalk + rayon scanner + progress streaming
 │   │           └── compat.rs      # Runtime OS capability probing & legacy OS fallbacks
+│   ├── fossil-mcp/                # Shared Model Context Protocol (MCP) library
+│   │   └── src/
+│   │       ├── protocol.rs        # JSON-RPC 2.0, version negotiation, tool annotations
+│   │       ├── server.rs          # Stateful McpServer, tools, resources, prompts, security
+│   │       ├── config/            # 1-click config installer (Claude, Gemini, Codex, etc.)
+│   │       └── transport/         # stdio and Streamable HTTP (/mcp + Bearer auth + SSE)
 │   └── fossil-cli/                # Standalone zero-GUI binary (`fossil`)
 │       └── src/
-│           ├── main.rs            # Clap CLI subcommands (scan, search, largest, bloat, etc.)
-│           └── mcp.rs             # Stdio JSON-RPC 2.0 MCP server + cached FileArena
-├── src-tauri/                     # Thin Tauri v2 desktop wrapper over fossil-core
+│           └── main.rs            # Clap CLI subcommands (scan, search, largest, bloat, mcp)
+├── src-tauri/                     # Thin Tauri v2 desktop wrapper over fossil-core & fossil-mcp
 │   └── src/
 │       ├── lib.rs                 # MiMalloc global allocator + Tauri plugin/command wiring
-│       └── commands.rs            # IPC commands, Channel<ScanProgress>, binary Response
+│       └── commands.rs            # IPC commands, Channel<ScanProgress>, binary Response, MCP
 ├── src/                           # Frontend (Svelte 5 + TypeScript + Tailwind CSS v4)
 │   ├── lib/                       # Typed IPC wrappers, DataView binary decoder, formatters
-│   └── components/                # DrivePicker, CategoryBar, TreemapCanvas, FolderTree, etc.
+│   └── components/                # DrivePicker, CategoryBar, TreemapCanvas, FolderTree, McpModal
 └── .github/workflows/             # Multi-OS CI (ci.yml) & Binary Release pipeline (release.yml)
 ```
 
@@ -119,12 +124,20 @@ To maintain **60–120 FPS** in the desktop UI without shipping thousands of JSO
 
 ---
 
-## 6. MCP Server Architecture (`crates/fossil-cli/src/mcp.rs`)
+## 6. MCP Server Architecture (`crates/fossil-mcp`)
 
-- **Transport:** Line-delimited **JSON-RPC 2.0** over `stdin`/`stdout` (diagnostic logs strictly to `stderr`).
-- **Protocol:** Supports `initialize` (`protocolVersion: "2024-11-05"`), `notifications/initialized` (no reply for notifications without `id`), `ping`, `tools/list`, and `tools/call`.
-- **Stateful In-Memory Cache:** Holds `RwLock<Option<FileArena>>`. Calling `scan_directory` populates the cache; subsequent `search_files`, `get_largest_files`, `get_group_summary`, `get_bloat_dirs`, and `trash_paths` execute directly against the cached arena (or auto-scan if a new `path` is passed).
-- **Safety:** `trash_paths` enforces `fossil_core::ops::is_protected_path()` before calling `trash::delete_all`, then incrementally updates the cached arena.
+- **Transports:**
+  - **`stdio`:** Line-delimited **JSON-RPC 2.0** over `stdin`/`stdout` (diagnostic logs strictly to `stderr`). Used by Claude Desktop, Claude Code, Gemini CLI, Antigravity, and Codex CLI.
+  - **Streamable HTTP:** `POST /mcp` + Server-Sent Events (`GET /mcp`) over HTTP with Bearer Token auth, DNS rebinding (`Host`) protection, and `Origin` validation. Enables remote and cloud-hosted assistants like **ChatGPT (Web & Desktop)** via secure tunnels.
+- **Protocol Compliance:** Supports `initialize` with dynamic version negotiation (`2024-11-05`, `2025-03-26`, `2025-06-18`), `notifications/initialized`, `notifications/cancelled`, `ping`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, and `prompts/get`.
+- **Tool Annotations:** Every tool specifies `readOnlyHint`, `destructiveHint`, and `openWorldHint` metadata so LLMs understand which tools are read-only inspections versus destructive mutations.
+- **Stateful In-Memory Cache:** Holds `RwLock<Option<FileArena>>`. Calling `scan_directory` populates the cache; subsequent `list_children`, `search_files`, `get_largest_files`, `get_group_summary`, `get_bloat_dirs`, `get_cache_status`, and `trash_paths` execute directly against the cached arena.
+- **Safety & Sandboxing:**
+  - `trash_paths` enforces `fossil_core::ops::is_protected_path()` (protecting system roots and `$HOME`) before calling `trash::delete_all`.
+  - Supports `dry_run: true` on `trash_paths` to preview exact items and reclaimable bytes before modifying disk.
+  - Optional `--read-only` flag to block mutations entirely.
+  - Optional `--allow-dir <PATH>` sandboxing to confine operations to specific canonicalized directory trees.
+- **Client Auto-Configuration:** `fossil mcp install <client>` automatically and safely modifies configuration files for `claude-desktop`, `claude-code`, `gemini`, `antigravity`, `codex`, `cursor`, and `vscode`, with backup generation before writing.
 
 ---
 

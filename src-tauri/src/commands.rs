@@ -393,3 +393,50 @@ pub fn delete_nodes_permanently(
         errors,
     })
 }
+
+#[derive(Clone, Debug, Serialize)]
+pub struct McpClientStatus {
+    pub key: String,
+    pub name: String,
+    pub is_configured: bool,
+    pub config_path: Option<String>,
+}
+
+#[tauri::command]
+pub fn get_mcp_client_statuses() -> Vec<McpClientStatus> {
+    fossil_mcp::check_status()
+        .into_iter()
+        .map(|(target, is_conf, path)| {
+            let key = match target {
+                fossil_mcp::ClientTarget::ClaudeDesktop => "claude-desktop",
+                fossil_mcp::ClientTarget::ClaudeCode => "claude-code",
+                fossil_mcp::ClientTarget::Gemini => "gemini",
+                fossil_mcp::ClientTarget::Antigravity => "antigravity",
+                fossil_mcp::ClientTarget::Codex => "codex",
+                fossil_mcp::ClientTarget::Cursor => "cursor",
+                fossil_mcp::ClientTarget::VSCode => "vscode",
+                fossil_mcp::ClientTarget::ChatGPT => "chatgpt",
+            };
+            McpClientStatus {
+                key: key.to_string(),
+                name: target.display_name().to_string(),
+                is_configured: is_conf,
+                config_path: path.map(|p| p.display().to_string()),
+            }
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub fn install_mcp_client(client: String) -> Result<String, String> {
+    let target = fossil_mcp::ClientTarget::parse(&client)
+        .ok_or_else(|| format!("Unknown client '{client}'"))?;
+    fossil_mcp::install_client(target)
+}
+
+#[tauri::command]
+pub fn uninstall_mcp_client(client: String) -> Result<String, String> {
+    let target = fossil_mcp::ClientTarget::parse(&client)
+        .ok_or_else(|| format!("Unknown client '{client}'"))?;
+    fossil_mcp::uninstall_client(target)
+}

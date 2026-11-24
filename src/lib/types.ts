@@ -61,6 +61,13 @@ export interface ScanSummary {
   scan_duration_ms: number;
 }
 
+export interface McpClientStatus {
+  key: string;
+  name: string;
+  is_configured: boolean;
+  config_path?: string;
+}
+
 export interface NodeItem {
   id: number;
   parent: number;

@@ -9,6 +9,7 @@
     Monitor,
     Database,
     ArrowRight,
+    Bot,
   } from '@lucide/svelte';
   import type { QuickTarget, VolumeInfo } from '../lib/types';
   import { formatBytes } from '../lib/format';
@@ -17,9 +18,10 @@
     volumes: VolumeInfo[];
     quickTargets: QuickTarget[];
     onScan: (path: string) => void;
+    onOpenMcp?: () => void;
   }
 
-  let { volumes, quickTargets, onScan }: Props = $props();
+  let { volumes, quickTargets, onScan, onOpenMcp }: Props = $props();
 
   async function pickFolder() {
     const selected = await open({
@@ -62,13 +64,24 @@
         </p>
       </div>
 
-      <button
-        onclick={pickFolder}
-        class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-zinc-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 active:scale-[0.98]"
-      >
-        <FolderOpen class="h-4 w-4" />
-        Choose Folder...
-      </button>
+      <div class="flex items-center gap-2">
+        {#if onOpenMcp}
+          <button
+            onclick={onOpenMcp}
+            class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3.5 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 active:scale-[0.98]"
+          >
+            <Bot class="h-4 w-4 text-purple-400" />
+            AI / MCP Setup
+          </button>
+        {/if}
+        <button
+          onclick={pickFolder}
+          class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-cyan-500 px-4 py-2 text-sm font-medium text-zinc-950 shadow-lg shadow-cyan-500/20 transition hover:bg-cyan-400 active:scale-[0.98]"
+        >
+          <FolderOpen class="h-4 w-4" />
+          Choose Folder...
+        </button>
+      </div>
     </div>
 
     <!-- Mounted Volumes -->

@@ -203,3 +203,15 @@ export async function trashNodes(nodeIds: number[]): Promise<DeleteResult> {
 export async function deleteNodesPermanently(nodeIds: number[]): Promise<DeleteResult> {
   return invoke<DeleteResult>('delete_nodes_permanently', { nodeIds });
 }
+
+export async function getMcpClientStatuses(): Promise<import('./types').McpClientStatus[]> {
+  return invoke<import('./types').McpClientStatus[]>('get_mcp_client_statuses');
+}
+
+export async function installMcpClient(client: string): Promise<string> {
+  return invoke<string>('install_mcp_client', { client });
+}
+
+export async function uninstallMcpClient(client: string): Promise<string> {
+  return invoke<string>('uninstall_mcp_client', { client });
+}
