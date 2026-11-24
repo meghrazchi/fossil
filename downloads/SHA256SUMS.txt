@@ -1,0 +1,2 @@
+# SHA256 checksums for Fossil release assets.
+# This file is automatically updated by the release CI/CD workflow on each v*.*.* release tag.

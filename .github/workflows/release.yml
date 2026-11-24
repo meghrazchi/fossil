@@ -1,0 +1,274 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag name (e.g. v0.1.0), defaults to v<package.json version>'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-installers:
+    name: Build (${{ matrix.platform }} / ${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            asset_arch: macos-arm64
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            asset_arch: macos-x64
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            asset_arch: windows-x64
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            asset_arch: linux-x64
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Linux Tauri system dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev \
+            rpm \
+            squashfs-tools
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Tauri Desktop Installers
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: pnpm tauri build --target ${{ matrix.target }}
+
+      - name: Build Standalone CLI/MCP Binary
+        run: cargo build --release -p fossil-cli --target ${{ matrix.target }}
+
+      - name: Collect Release Assets (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+
+          DMG_FILE=""
+          CLI_DIR=""
+          for base in "target/${{ matrix.target }}/release" "src-tauri/target/${{ matrix.target }}/release"; do
+            if [ -z "$DMG_FILE" ] && [ -d "$base/bundle/dmg" ]; then
+              DMG_FILE="$(find "$base/bundle/dmg" -maxdepth 1 -type f -name '*.dmg' | head -n 1 || true)"
+            fi
+            if [ -z "$CLI_DIR" ] && [ -f "$base/fossil" ]; then
+              CLI_DIR="$base"
+            fi
+          done
+
+          if [ -z "$DMG_FILE" ] || [ ! -f "$DMG_FILE" ]; then
+            echo "Error: macOS .dmg installer not found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+          if [ -z "$CLI_DIR" ]; then
+            echo "Error: fossil CLI binary not found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+
+          cp "$DMG_FILE" "release-assets/Fossil-${{ matrix.asset_arch }}.dmg"
+          tar -czf "release-assets/fossil-cli-${{ matrix.asset_arch }}.tar.gz" -C "$CLI_DIR" fossil
+
+      - name: Collect Release Assets (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets
+
+          APPIMAGE_FILE=""
+          DEB_FILE=""
+          RPM_FILE=""
+          CLI_DIR=""
+          for base in "target/${{ matrix.target }}/release" "src-tauri/target/${{ matrix.target }}/release"; do
+            if [ -z "$APPIMAGE_FILE" ] && [ -d "$base/bundle/appimage" ]; then
+              APPIMAGE_FILE="$(find "$base/bundle/appimage" -maxdepth 1 -type f -name '*.AppImage' | head -n 1 || true)"
+            fi
+            if [ -z "$DEB_FILE" ] && [ -d "$base/bundle/deb" ]; then
+              DEB_FILE="$(find "$base/bundle/deb" -maxdepth 1 -type f -name '*.deb' | head -n 1 || true)"
+            fi
+            if [ -z "$RPM_FILE" ] && [ -d "$base/bundle/rpm" ]; then
+              RPM_FILE="$(find "$base/bundle/rpm" -maxdepth 1 -type f -name '*.rpm' | head -n 1 || true)"
+            fi
+            if [ -z "$CLI_DIR" ] && [ -f "$base/fossil" ]; then
+              CLI_DIR="$base"
+            fi
+          done
+
+          if [ -z "$APPIMAGE_FILE" ] || [ ! -f "$APPIMAGE_FILE" ]; then
+            echo "Error: Linux .AppImage not found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+          if [ -z "$DEB_FILE" ] || [ ! -f "$DEB_FILE" ]; then
+            echo "Error: Linux .deb not found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+          if [ -z "$RPM_FILE" ] || [ ! -f "$RPM_FILE" ]; then
+            echo "Error: Linux .rpm not found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+          if [ -z "$CLI_DIR" ]; then
+            echo "Error: fossil CLI binary not found for ${{ matrix.target }}" >&2
+            exit 1
+          fi
+
+          cp "$APPIMAGE_FILE" "release-assets/Fossil-linux-x64.AppImage"
+          chmod +x "release-assets/Fossil-linux-x64.AppImage"
+          cp "$DEB_FILE" "release-assets/Fossil-linux-x64.deb"
+          cp "$RPM_FILE" "release-assets/Fossil-linux-x64.rpm"
+          tar -czf "release-assets/fossil-cli-linux-x64.tar.gz" -C "$CLI_DIR" fossil
+
+      - name: Collect Release Assets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force -Path release-assets | Out-Null
+
+          $candidates = @(
+            "target\${{ matrix.target }}\release",
+            "src-tauri\target\${{ matrix.target }}\release"
+          )
+
+          $nsis = $null
+          $msi = $null
+          $cli = $null
+          foreach ($base in $candidates) {
+            if (-not $nsis -and (Test-Path "$base\bundle\nsis")) {
+              $nsis = Get-ChildItem -Path "$base\bundle\nsis" -Filter "*.exe" -File | Select-Object -First 1
+            }
+            if (-not $msi -and (Test-Path "$base\bundle\msi")) {
+              $msi = Get-ChildItem -Path "$base\bundle\msi" -Filter "*.msi" -File | Select-Object -First 1
+            }
+            if (-not $cli -and (Test-Path "$base\fossil.exe")) {
+              $cli = Get-Item "$base\fossil.exe"
+            }
+          }
+
+          if (-not $nsis) { throw "Windows NSIS setup .exe not found for ${{ matrix.target }}" }
+          if (-not $msi) { throw "Windows .msi installer not found for ${{ matrix.target }}" }
+          if (-not $cli) { throw "fossil.exe CLI binary not found for ${{ matrix.target }}" }
+
+          Copy-Item $nsis.FullName "release-assets\Fossil-windows-x64-setup.exe"
+          Copy-Item $msi.FullName "release-assets\Fossil-windows-x64.msi"
+          Compress-Archive -Path $cli.FullName -DestinationPath "release-assets\fossil-cli-windows-x64.zip" -Force
+
+      - name: Upload Release Assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: assets-${{ matrix.target }}
+          path: release-assets/
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish Release & Checksums
+    needs: build-installers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download All Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: assets-*
+          path: all-assets
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS.txt
+        run: |
+          set -euo pipefail
+          cd all-assets
+          rm -f SHA256SUMS.txt
+          sha256sum * > /tmp/SHA256SUMS.txt
+          mv /tmp/SHA256SUMS.txt ./SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Resolve Release Tag
+        id: tag
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            VERSION="$(node -p "require('./package.json').version")"
+            TAG="v${VERSION}"
+          fi
+          echo "value=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: 'Fossil ${{ steps.tag.outputs.value }}'
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: all-assets/*
+
+      - name: Update downloads/SHA256SUMS.txt on main
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -B main origin/main
+          mkdir -p downloads
+          cp all-assets/SHA256SUMS.txt downloads/SHA256SUMS.txt
+          git add downloads/SHA256SUMS.txt
+          git diff --staged --quiet || (
+            git commit -m "chore(release): update downloads/SHA256SUMS.txt for ${{ steps.tag.outputs.value }} [skip ci]"
+            git push origin HEAD:main
+          )

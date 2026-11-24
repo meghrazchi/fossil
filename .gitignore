@@ -1,0 +1,20 @@
+# Dependencies & Build Artifacts
+node_modules/
+dist/
+.pnpm-store/
+
+# Rust / Tauri
+target/
+src-tauri/target/
+src-tauri/gen/
+**/*.rs.bk
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp
+*.swo

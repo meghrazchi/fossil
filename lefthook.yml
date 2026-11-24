@@ -1,0 +1,34 @@
+pre-commit:
+  parallel: true
+  commands:
+    rust-fmt:
+      glob: '{crates,src-tauri}/**/*.rs'
+      run: cargo fmt --all -- --check
+    frontend-eslint:
+      glob: '*.{ts,js,svelte}'
+      run: pnpm exec eslint {staged_files}
+    frontend-prettier:
+      glob: '*.{ts,js,svelte,css,json,html}'
+      run: pnpm exec prettier --check {staged_files}
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: |
+        msg=$(head -n1 {1})
+        if ! echo "$msg" | grep -Eq '^(feat|fix|perf|refactor|docs|style|test|build|ci|chore|revert)(\(.+\))?!?: .+'; then
+          echo "ERROR: Commit message must follow Conventional Commits (e.g. 'feat: add macOS bulk scanner')"
+          exit 1
+        fi
+
+pre-push:
+  parallel: true
+  commands:
+    rust-clippy:
+      run: cargo clippy --workspace --all-targets -- -D warnings
+    rust-test:
+      run: cargo test --workspace
+    frontend-check:
+      run: pnpm run check
+    frontend-test:
+      run: pnpm run test
