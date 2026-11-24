@@ -1266,7 +1266,6 @@ dependencies = [
  "rayon",
  "rustc-hash",
  "serde",
- "serde_json",
  "sysinfo",
  "tempfile",
  "trash",

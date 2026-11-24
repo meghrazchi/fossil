@@ -111,7 +111,14 @@ fn matches_name_or_path(
         return contains_ignore_case(&arena.root_path.to_string_lossy(), query_lower);
     }
     let full = arena.full_path(id);
-    contains_ignore_case(&full.to_string_lossy(), query_lower)
+    let full_str = full.to_string_lossy();
+    if query_lower.contains('\\') || full_str.contains('\\') {
+        let normalized_path = full_str.replace('\\', "/");
+        let normalized_query = query_lower.replace('\\', "/");
+        contains_ignore_case(&normalized_path, &normalized_query)
+    } else {
+        contains_ignore_case(&full_str, query_lower)
+    }
 }
 
 #[inline]
