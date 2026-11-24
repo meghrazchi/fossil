@@ -18,3 +18,12 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Local secrets & signing certificates (never commit!)
+.env
+.env.*
+*.p12
+*.cer
+*.pem
+*.certSigningRequest
+

@@ -15,7 +15,17 @@
 
 Use Fossil however you work best: as a **sleek native desktop app**, a **lightning-fast command-line tool**, or an **AI-ready MCP server** for assistants like Claude, Cursor, and Antigravity.
 
-> **Lightweight by design:** Unlike bulky Electron apps that eat hundreds of megabytes of RAM and 120+ MB of disk space just to open, Fossil installs in **~6–12 MB**, launches instantly, and stays whisper-quiet on memory, even on million-file drives.
+> **Lightweight by design:** Unlike bulky Electron apps that eat hundreds of megabytes of RAM and 120+ MB of disk space just to open, Fossil installs in **~6-12 MB**, launches instantly, and stays whisper-quiet on memory, even on million-file drives.
+
+---
+
+## See Fossil in Action
+
+Pick any drive or folder and map your entire storage in seconds, with instant visual breakdowns and safe one-click cleanup:
+
+<p align="center">
+  <img src="./docs/assets/fossil-preview.png" alt="Fossil Desktop App Preview showing mounted drives, quick folders, and instant disk space analysis" width="820" />
+</p>
 
 ---
 

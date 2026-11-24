@@ -1229,7 +1229,7 @@ dependencies = [
 
 [[package]]
 name = "fossil"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "fossil-core",
  "mimalloc",
@@ -1244,7 +1244,7 @@ dependencies = [
 
 [[package]]
 name = "fossil-cli"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "clap",
  "fossil-core",
@@ -1257,7 +1257,7 @@ dependencies = [
 
 [[package]]
 name = "fossil-core"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "bitflags 2.13.2",
  "jwalk",
