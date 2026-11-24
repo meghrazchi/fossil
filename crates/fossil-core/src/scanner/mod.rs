@@ -225,12 +225,8 @@ where
             // Filter out child directories that should be skipped before descending
             children.retain(|entry_res| match entry_res {
                 Ok(entry) => {
-                    if entry.file_type.is_dir()
-                        && should_skip_dir(&entry.path(), root_is_slash, &skip_mounts_clone)
-                    {
-                        return false;
-                    }
-                    true
+                    !(entry.file_type.is_dir()
+                        && should_skip_dir(&entry.path(), root_is_slash, &skip_mounts_clone))
                 }
                 Err(_) => true, // Keep errors so main loop records permission warnings
             });
