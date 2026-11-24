@@ -1,2 +1,11 @@
-# SHA256 checksums for Fossil release assets.
-# This file is automatically updated by the release CI/CD workflow on each v*.*.* release tag.
+ce1af0f0c2660bbc368aafbd7c9cfd15c3b81b2fdbd9218d824e498bb0aea185  Fossil-linux-x64.AppImage
+147d8ad16c62875563d353d742f2fc04c1f01d5f19d991695feb8549cbb8e2cc  Fossil-linux-x64.deb
+42f249b35c150d9a57813d71dc0907116b337ee668d97e4e1e16adf2553c5d62  Fossil-linux-x64.rpm
+e7089187014a87ec32756b4b4714dfdfbf5e10890aec5697b0f2c268ec4e988b  Fossil-macos-arm64.dmg
+7713f053c2e0e123e01cbcb43cd9fae60dc465603fae7686edb8a41386fae266  Fossil-macos-x64.dmg
+a15cd1c095bf2873e73562594496d1e554ce1439c0d10870960b5d0b7514c7ea  Fossil-windows-x64-setup.exe
+65d44de0389f6f20c0c8b88009afb7b1830045d1395637a16789a8638fdaff12  Fossil-windows-x64.msi
+f962bdc39cb8a894fd7bb713f47c119cf2f52eda645ac99a42fde6cfddad69c3  fossil-cli-linux-x64.tar.gz
+3819dafcfd62ca7d8b3c00da6479f07421894418ddfea36bda1d2f33ae9be7d0  fossil-cli-macos-arm64.tar.gz
+c321cd64c600a92cf2d71e371a81383b18ed01c3825c024cc4637543d6d8d404  fossil-cli-macos-x64.tar.gz
+0ae460092dca330e5b20ed92d9d27c5c340f0a1d12ac7b260746649e08db657a  fossil-cli-windows-x64.zip
